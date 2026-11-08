@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#05070d">
+<title>PS10,000 Controller</title>
+<style>
+@font-face { font-family: 'PSUI'; font-weight: 600; src: url(/vendor/fonts/source-sans-3-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'PSUI'; font-weight: 800; src: url(/vendor/fonts/source-sans-3-latin-700-normal.woff2) format('woff2'); }
+:root { --c: #3d8bff; --bg: #06080f; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #f2f4f8; font-family: 'PSUI', system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+.view { position: fixed; inset: 0; display: none; }
+.view.on { display: block; }
+
+/* join */
+#join { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; background: radial-gradient(600px 420px at 50% 30%, #11295a 0%, #06080f 70%); }
+#join.on { display: flex; }
+.logo { font-size: 38px; font-weight: 800; letter-spacing: -.02em; }
+.logo span { background: linear-gradient(90deg, #8fc4ff, #fff 45%, #ff9cb3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { color: #a3acbd; font-size: 15px; font-weight: 600; }
+input.name { width: min(320px, 80vw); height: 52px; border-radius: 14px; border: 2px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; font: 600 20px PSUI, sans-serif; text-align: center; outline: none; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+.bigbtn { width: min(320px, 80vw); height: 60px; border-radius: 30px; border: 0; background: #fff; color: #0a0d14; font: 700 20px PSUI, sans-serif; }
+.linkbtn { background: none; border: 0; color: #9cc7ff; font: 600 16px PSUI, sans-serif; padding: 8px; }
+.err { color: #ff8095; font-size: 14px; font-weight: 600; min-height: 18px; }
+
+/* top strip */
+.strip { position: absolute; left: 0; right: 0; top: 0; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(14px, env(safe-area-inset-left)) 0 max(14px, env(safe-area-inset-right)); z-index: 5; }
+.pl { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; }
+.pl i { width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); }
+.status { font-size: 12px; color: #a3acbd; font-weight: 600; }
+.stripbtns { display: flex; gap: 8px; }
+.sbtn { height: 30px; padding: 0 12px; border-radius: 15px; background: rgba(255,255,255,.1); font-size: 13px; font-weight: 800; display: flex; align-items: center; color: #dfe5f0; }
+.glow { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--c); box-shadow: 0 0 18px var(--c); }
+
+/* pad area */
+#pad { background: radial-gradient(800px 500px at 50% 120%, #10182c 0%, var(--bg) 70%); }
+.ctl { position: absolute; display: flex; align-items: center; justify-content: center; }
+.btn { position: absolute; border-radius: 50%; background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; transition: transform .05s, background .05s; }
+.btn.on { background: var(--c); border-color: transparent; transform: scale(.94); }
+.pill { border-radius: 18px; font-size: 13px; letter-spacing: .06em; }
+.dpad { position: absolute; border-radius: 50%; background: rgba(255,255,255,.05); }
+.dpad .arm { position: absolute; background: rgba(255,255,255,.12); border-radius: 12px; }
+.dpad .arm.on { background: var(--c); }
+.stick { position: absolute; border-radius: 50%; background: rgba(255,255,255,.06); border: 2px solid rgba(255,255,255,.1); }
+.stick .knob { position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 50%; background: rgba(255,255,255,.22); box-shadow: 0 4px 16px rgba(0,0,0,.5); transition: transform .06s; }
+.stick.on .knob { background: var(--c); transition: none; }
+.label { position: absolute; font-size: 11px; color: #6b7486; font-weight: 800; letter-spacing: .1em; }
+#rot { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: var(--bg); z-index: 50; text-align: center; padding: 30px; }
+#rot svg { width: 90px; height: 90px; fill: #fff; animation: tilt 2s ease-in-out infinite; }
+@keyframes tilt { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { body.playing #rot { display: flex; } }
+
+/* add games */
+#add { padding: 60px 22px 22px; overflow-y: auto; touch-action: pan-y; }
+#add h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+#add p { color: #a3acbd; font-size: 15px; line-height: 1.5; font-weight: 600; }
+.pick { display: block; margin: 22px 0; width: 100%; height: 64px; border-radius: 18px; border: 2px dashed rgba(255,255,255,.3); background: rgba(255,255,255,.05); color: #fff; font: 700 18px PSUI, sans-serif; }
+.up { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.05); margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.up b { color: #a3acbd; flex: 0 0 auto; }
+.up.ok b { color: #3ddc84; } .up.bad b { color: #ff8095; }
+</style>
+</head>
+<body>
+<div class="view" id="join">
+  <div class="logo">PS<span>10,000</span></div>
+  <div class="sub">Phone controller</div>
+  <input class="name" id="name" maxlength="16" placeholder="Your name" autocomplete="off">
+  <button class="bigbtn" id="go">Join game</button>
+  <button class="linkbtn" id="toAdd">Add games to the TV</button>
+  <div class="err" id="err"></div>
+</div>
+
+<div class="view" id="pad">
+  <div class="glow"></div>
+  <div class="strip">
+    <div class="pl"><i></i><span id="who">Connecting…</span></div>
+    <div class="status" id="status"></div>
+    <div class="stripbtns"><div class="sbtn" id="padAdd">+ GAMES</div></div>
+  </div>
+  <div id="ctls"></div>
+</div>
+
+<div class="view" id="add">
+  <div class="strip"><div class="pl"><i></i><span>Add games</span></div><div class="stripbtns"><div class="sbtn" id="addBack">CONTROLLER</div></div></div>
+  <h2>Send ROMs to the TV</h2>
+  <p>Pick .nes .sfc .smc .gb .gbc .gba .md .gen .sms .gg or .zip files. They appear on the TV right away.</p>
+  <p>Only send games you're allowed to share — homebrew with open licences or your own backups.</p>
+  <button class="pick" id="pickBtn">Choose files</button>
+  <input type="file" id="files" multiple accept=".nes,.sfc,.smc,.gb,.gbc,.gba,.md,.gen,.smd,.bin,.sms,.gg,.zip" style="display:none">
+  <div id="uploads"></div>
+</div>
+
+<div id="rot"><svg viewBox="0 0 24 24"><path d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v13h8V5H8z"/></svg><div style="font-weight:800;font-size:20px">Turn your phone sideways</div><div class="sub">The controller works in landscape</div></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const KEY = q.get('k') || '';
+  const LS = { get: (k, d) => { try { return localStorage.getItem('ps10kpad.' + k) || d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem('ps10kpad.' + k, v); } catch (e) {} } };
+  let pid = LS.get('pid', ''); if (!pid) { pid = Math.random().toString(36).slice(2, 10); LS.set('pid', pid); }
+  $('name').value = LS.get('name', '');
+
+  // ----------------------------------------------------------------- state
+  // bits follow the standard gamepad: 0 A,1 B,2 X,3 Y,4 LB,5 RB,6 LT,7 RT,8 Select,9 Start,10 L3,11 R3,12 Up,13 Down,14 Left,15 Right,16 Home
+  let mask = 0; const axes = [0, 0, 0, 0];
+  let ws = null, slot = -1, layout = 'menu', lastSent = '', retry = 0, joined = false;
+  const B = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, start: 9, l3: 10, r3: 11, up: 12, down: 13, left: 14, right: 15, home: 16 };
+
+  function show(v) { ['join', 'pad', 'add'].forEach(x => $(x).classList.toggle('on', x === v)); document.body.classList.toggle('playing', v === 'pad'); }
+
+  // ----------------------------------------------------------------- network
+  function connect() {
+    const name = ($('name').value || 'Phone').trim().slice(0, 16);
+    const url = 'ws://' + location.host + '/ws?role=pad&k=' + encodeURIComponent(KEY) + '&pid=' + pid + '&name=' + encodeURIComponent(name) + '&ua=' + encodeURIComponent(/iPhone|iPad/.test(navigator.userAgent) ? 'ios' : 'android');
+    $('status').textContent = 'Connecting…';
+    try { ws = new WebSocket(url); } catch (e) { return later(); }
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = () => { retry = 0; $('status').textContent = ''; send(true); };
+    ws.onmessage = ev => {
+      if (typeof ev.data !== 'string') return;
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.t === 'slot') setSlot(m.slot, m.color);
+      else if (m.t === 'layout') build(m.layout);
+      else if (m.t === 'rumble') buzz(m.ms || 60);
+    };
+    ws.onclose = () => { ws = null; $('status').textContent = 'Reconnecting…'; $('who').textContent = 'Offline'; later(); };
+    ws.onerror = () => {};
+  }
+  function later() { if (!joined) return; setTimeout(connect, Math.min(4000, 400 * ++retry)); }
+
+  function setSlot(s, color) {
+    slot = s;
+    document.documentElement.style.setProperty('--c', color || '#888');
+    $('who').textContent = s >= 0 ? 'Player ' + (s + 1) : 'Waiting for a free slot';
+  }
+
+  const frame = new Uint8Array(8);
+  function send(force) {
+    if (!ws || ws.readyState !== 1) return;
+    frame[0] = 1; frame[1] = mask & 255; frame[2] = (mask >> 8) & 255; frame[3] = (mask >> 16) & 255;
+    for (let i = 0; i < 4; i++) frame[4 + i] = Math.round(Math.max(-1, Math.min(1, axes[i])) * 127) & 255;
+    const sig = frame.join(',');
+    if (!force && sig === lastSent) return;
+    lastSent = sig;
+    ws.send(frame.buffer.slice(0));
+  }
+  setInterval(() => send(true), 100); // heartbeat keeps held buttons alive
+
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+  function setBit(name, on) {
+    const bit = 1 << B[name];
+    const was = (mask & bit) !== 0;
+    if (on === was) return;
+    mask = on ? (mask | bit) : (mask & ~bit);
+    if (on) buzz(12);
+    send();
+  }
+
+  // ----------------------------------------------------------------- touch controls
+  const ctls = $('ctls');
+  let handlers = []; // {el, kind, ...}
+  const active = new Map(); // pointerId -> handler
+
+  function button(name, label, x, y, size, opts) {
+    const el = document.createElement('div');
+    el.className = 'btn' + (opts && opts.pill ? ' pill' : '');
+    el.textContent = label;
+    place(el, x, y, opts && opts.w ? opts.w : size, opts && opts.h ? opts.h : size);
+    el.style.fontSize = (opts && opts.fs) || Math.round(size * 0.34) + 'px';
+    ctls.appendChild(el);
+    handlers.push({ el, kind: 'btn', name });
+  }
+  function place(el, x, y, w, h) {
+    // x,y are centres in % of the screen; w,h in px (scaled by the short side)
+    const s = Math.min(innerWidth, innerHeight) / 390;
+    el.style.width = (w * s) + 'px'; el.style.height = (h * s) + 'px';
+    el.style.left = `calc(${x}% - ${(w * s) / 2}px)`; el.style.top = `calc(${y}% - ${(h * s) / 2}px)`;
+  }
+  function dpad(x, y, size) {
+    const el = document.createElement('div'); el.className = 'dpad'; place(el, x, y, size, size);
+    const s = Math.min(innerWidth, innerHeight) / 390 * size;
+    const arms = {};
+    [['up', 0.34, 0.04, 0.32, 0.36], ['down', 0.34, 0.6, 0.32, 0.36], ['left', 0.04, 0.34, 0.36, 0.32], ['right', 0.6, 0.34, 0.36, 0.32]].forEach(([n, l, t, w, h]) => {
+      const a = document.createElement('div'); a.className = 'arm';
+      a.style.left = l * s + 'px'; a.style.top = t * s + 'px'; a.style.width = w * s + 'px'; a.style.height = h * s + 'px';
+      el.appendChild(a); arms[n] = a;
+    });
+    ctls.appendChild(el);
+    handlers.push({ el, kind: 'dpad', arms });
+  }
+  function stick(x, y, size, which) {
+    const el = document.createElement('div'); el.className = 'stick'; place(el, x, y, size, size);
+    const knob = document.createElement('div'); knob.className = 'knob'; el.appendChild(knob);
+    ctls.appendChild(el);
+    handlers.push({ el, kind: 'stick', knob, which });
+  }
+  function label(text, x, y) { const l = document.createElement('div'); l.className = 'label'; l.textContent = text; l.style.left = x + '%'; l.style.top = y + '%'; l.style.transform = 'translate(-50%,-50%)'; ctls.appendChild(l); }
+
+  function build(name) {
+    layout = name || layout;
+    ctls.innerHTML = ''; handlers = []; active.clear(); mask = 0; axes.fill(0); send();
+    const L = layout;
+    if (L === 'menu') {
+      dpad(22, 58, 220);
+      button('a', 'A', 80, 66, 110); button('b', 'B', 64, 38, 84);
+      button('home', 'HOME', 50, 86, 40, { pill: true, w: 110, h: 40, fs: '13px' });
+      label('MENU', 50, 16);
+    } else if (L === 'retro') {
+      dpad(20, 58, 220);
+      // SNES-style diamond: X top, A right, B bottom, Y left
+      button('x', 'X', 77, 33, 76); button('a', 'A', 89, 55, 86); button('b', 'B', 77, 77, 86); button('y', 'Y', 65, 55, 76);
+      button('lb', 'L', 12, 16, 40, { pill: true, w: 110, h: 40, fs: '14px' });
+      button('rb', 'R', 88, 16, 40, { pill: true, w: 110, h: 40, fs: '14px' });
+      button('select', 'SELECT', 42, 88, 36, { pill: true, w: 96, h: 36, fs: '12px' }); button('start', 'START', 58, 88, 36, { pill: true, w: 96, h: 36, fs: '12px' });
+      button('home', '≡', 50, 18, 44, { fs: '18px' });
+    } else if (L === 'modern') {
+      stick(20, 60, 210, 'l');
+      button('a', 'A', 82, 70, 76); button('b', 'B', 92, 50, 76); button('x', 'X', 72, 50, 76); button('y', 'Y', 82, 30, 76);
+      button('lb', 'LB', 12, 18, 40, { pill: true, w: 96, h: 40, fs: '14px' }); button('lt', 'LT', 30, 18, 40, { pill: true, w: 96, h: 40, fs: '14px' });
+      button('rt', 'RT', 70, 13, 40, { pill: true, w: 96, h: 40, fs: '14px' }); button('rb', 'RB', 88, 13, 40, { pill: true, w: 96, h: 40, fs: '14px' });
+      button('select', '◁', 44, 88, 40, { fs: '16px' }); button('start', '▷', 56, 88, 40, { fs: '16px' }); button('home', '≡', 50, 66, 44, { fs: '18px' });
+      dpad(45, 40, 120);
+    } else if (L === 'twin') {
+      stick(20, 60, 210, 'l'); stick(80, 60, 210, 'r');
+      button('a', 'A', 50, 58, 64); button('b', 'B', 50, 78, 52);
+      button('lt', 'LT', 14, 16, 40, { pill: true, w: 96, h: 40, fs: '14px' }); button('rt', 'RT', 86, 16, 40, { pill: true, w: 96, h: 40, fs: '14px' });
+      button('start', '▷', 58, 30, 40, { fs: '16px' }); button('home', '≡', 42, 30, 40, { fs: '18px' });
+      label('MOVE', 20, 96); label('AIM', 80, 96);
+    } else if (L === 'onebutton') {
+      button('a', 'HOLD', 62, 60, 260, { fs: '40px' });
+      button('start', '▷', 12, 80, 50, { fs: '18px' }); button('home', '≡', 12, 30, 50, { fs: '18px' });
+      button('b', 'B', 12, 55, 50);
+    }
+  }
+
+  function hit(h, x, y) { const r = h.el.getBoundingClientRect(); const pad = h.kind === 'btn' ? 10 : 30; return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad; }
+  function updateDpad(h, x, y, release) {
+    const r = h.el.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const dx = x - cx, dy = y - cy; const dead = r.width * 0.12;
+    const st = release ? {} : { up: dy < -dead && Math.abs(dy) > Math.abs(dx) * 0.45, down: dy > dead && Math.abs(dy) > Math.abs(dx) * 0.45, left: dx < -dead && Math.abs(dx) > Math.abs(dy) * 0.45, right: dx > dead && Math.abs(dx) > Math.abs(dy) * 0.45 };
+    ['up', 'down', 'left', 'right'].forEach(d => { setBit(d, !!st[d]); h.arms[d].classList.toggle('on', !!st[d]); });
+  }
+  function updateStick(h, x, y, release) {
+    const r = h.el.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = (x - cx) / (r.width / 2), dy = (y - cy) / (r.height / 2);
+    if (release) dx = dy = 0;
+    const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+    const i = h.which === 'r' ? 2 : 0;
+    axes[i] = Math.abs(dx) < 0.08 ? 0 : dx; axes[i + 1] = Math.abs(dy) < 0.08 ? 0 : dy;
+    h.knob.style.transform = `translate(${dx * r.width * 0.32}px, ${dy * r.height * 0.32}px)`;
+    h.el.classList.toggle('on', !release);
+    send();
+  }
+
+  function down(e) {
+    if (!$('pad').classList.contains('on')) return;
+    e.preventDefault();
+    for (const h of handlers) {
+      if ((h.kind === 'stick' || h.kind === 'dpad') ? hit(h, e.clientX, e.clientY) : hit(h, e.clientX, e.clientY)) {
+        active.set(e.pointerId, h);
+        if (h.kind === 'btn') { setBit(h.name, true); h.el.classList.add('on'); }
+        else if (h.kind === 'dpad') updateDpad(h, e.clientX, e.clientY);
+        else updateStick(h, e.clientX, e.clientY);
+        return;
+      }
+    }
+  }
+  function move(e) {
+    const h = active.get(e.pointerId); if (!h) return;
+    e.preventDefault();
+    if (h.kind === 'dpad') updateDpad(h, e.clientX, e.clientY);
+    else if (h.kind === 'stick') updateStick(h, e.clientX, e.clientY);
+    else if (!hit(h, e.clientX, e.clientY)) { setBit(h.name, false); h.el.classList.remove('on'); active.delete(e.pointerId); }
+  }
+  function up(e) {
+    const h = active.get(e.pointerId); if (!h) return;
+    active.delete(e.pointerId);
+    if (h.kind === 'btn') { if (![...active.values()].includes(h)) { setBit(h.name, false); h.el.classList.remove('on'); } }
+    else if (h.kind === 'dpad') updateDpad(h, 0, 0, true);
+    else updateStick(h, 0, 0, true);
+  }
+  document.addEventListener('pointerdown', down, { passive: false });
+  document.addEventListener('pointermove', move, { passive: false });
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  addEventListener('resize', () => build(layout));
+
+  // ----------------------------------------------------------------- keep awake + fullscreen
+  let lock = null;
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) { lock = await navigator.wakeLock.request('screen'); } } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && joined) { keepAwake(); if (!ws) connect(); } });
+  async function fullscreen() {
+    try { const d = document.documentElement; if (d.requestFullscreen) await d.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) {}
+  }
+
+  // ----------------------------------------------------------------- join / add
+  $('go').onclick = () => {
+    if (!KEY) { $('err').textContent = 'Scan the QR code on the TV to connect.'; return; }
+    LS.set('name', ($('name').value || '').trim());
+    joined = true; fullscreen(); keepAwake();
+    show('pad'); build('menu'); connect();
+  };
+  $('toAdd').onclick = () => show('add');
+  $('padAdd').onclick = () => show('add');
+  $('addBack').onclick = () => { if (joined) show('pad'); else show('join'); };
+  $('pickBtn').onclick = () => $('files').click();
+  $('files').onchange = async () => {
+    const list = [...$('files').files];
+    for (const f of list) await upload(f);
+    $('files').value = '';
+  };
+  function upload(f) {
+    return new Promise(res => {
+      const row = document.createElement('div'); row.className = 'up';
+      row.innerHTML = '<span></span><b>0%</b>'; row.firstChild.textContent = f.name;
+      $('uploads').prepend(row);
+      const x = new XMLHttpRequest();
+      x.open('POST', '/api/upload?k=' + encodeURIComponent(KEY) + '&name=' + encodeURIComponent(f.name));
+      x.upload.onprogress = e => { if (e.lengthComputable) row.lastChild.textContent = Math.round(e.loaded / e.total * 100) + '%'; };
+      x.onload = () => { const ok = x.status === 200; row.classList.add(ok ? 'ok' : 'bad'); row.lastChild.textContent = ok ? 'On the TV' : (x.status === 403 ? 'Scan the TV QR again' : 'Not supported'); res(); };
+      x.onerror = () => { row.classList.add('bad'); row.lastChild.textContent = 'Failed'; res(); };
+      x.send(f);
+    });
+  }
+
+  if (q.get('tab') === 'add') show('add'); else show('join');
+  if (!KEY) $('err').textContent = 'Open this page by scanning the QR code on the TV.';
+})();
+</script>
+</body>
+</html>

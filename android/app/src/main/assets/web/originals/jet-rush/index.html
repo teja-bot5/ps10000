@@ -1,0 +1,168 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jet Rush</title>
+<style>@font-face{font-family:PSUI;font-weight:800;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}@font-face{font-family:PSUI;font-weight:600;src:url(/vendor/fonts/source-sans-3-latin-600-normal.woff2)}@font-face{font-family:PSUI;font-weight:700;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}</style>
+</head><body>
+<script src="../lib.js"></script>
+<script>
+(function () {
+  const { W, H, text, sfx, burst, shake, COLORS, rand, rrect } = G;
+  const FLOOR = 470, CEIL = 54;
+  let state = 'title', t = 0, dist = 0, speed = 0, countdown = 0;
+  let racers = [], obs = [], coins = [], missiles = [], scrollX = 0, nextObs = 0, nextCoin = 0, nextMissile = 0;
+  const ready = [false, false, false, false];
+  let best = +(localStorage.getItem('jetrush.best') || 0);
+
+  function startRound() {
+    racers = [];
+    ready.forEach((r, i) => { if (r) racers.push({ i, x: 210 - racers.length * 34, y: FLOOR - 20, vy: 0, alive: true, dist: 0, coins: 0, flame: 0, run: 0 }); });
+    if (!racers.length) racers.push({ i: 0, x: 210, y: FLOOR - 20, vy: 0, alive: true, dist: 0, coins: 0, flame: 0, run: 0 });
+    obs = []; coins = []; missiles = []; dist = 0; speed = 5.2; scrollX = 0; nextObs = 520; nextCoin = 300; nextMissile = 900;
+    state = 'play'; t = 0;
+  }
+
+  function spawnObstacle() {
+    const level = Math.min(1, dist / 9000);
+    const kind = Math.random();
+    const x = W + 60;
+    if (kind < 0.4) { const len = rand(110, 190); const y = rand(CEIL + 20, FLOOR - len - 10); obs.push({ x, y1: y, y2: y + len, x1: 0, x2: 0, rot: 0, spin: 0 }); }
+    else if (kind < 0.7) { const len = rand(150, 240); const y = rand(CEIL + 40, FLOOR - 40); obs.push({ x, y1: y, y2: y, x1: -len / 2, x2: len / 2, rot: 0, spin: 0 }); }
+    else { const len = rand(120, 180); const y = rand(CEIL + 90, FLOOR - 90); obs.push({ x, y1: y, y2: y, x1: -len / 2, x2: len / 2, rot: rand(0, Math.PI), spin: level > 0.3 ? rand(0.015, 0.035) * (Math.random() < 0.5 ? -1 : 1) : 0 }); }
+    nextObs = dist + rand(420, 700) * (1 - level * 0.35);
+  }
+  function spawnCoins() {
+    const y0 = rand(CEIL + 60, FLOOR - 80), n = 8 + (Math.random() * 6 | 0), wave = Math.random() < 0.5;
+    for (let k = 0; k < n; k++) coins.push({ x: W + 40 + k * 30, y: y0 + (wave ? Math.sin(k / 2) * 40 : 0), got: false });
+    nextCoin = dist + rand(500, 900);
+  }
+  function spawnMissile() {
+    const alive = racers.filter(r => r.alive);
+    if (!alive.length) return;
+    const tgt = alive[Math.random() * alive.length | 0];
+    missiles.push({ y: tgt.y, warn: 70, x: W + 80, tgt });
+    nextMissile = dist + rand(1100, 1900) * (1 - Math.min(0.5, dist / 20000));
+  }
+  function segPoints(o) {
+    const c = Math.cos(o.rot), s = Math.sin(o.rot);
+    if (o.x1 === 0 && o.x2 === 0 && o.rot === 0) return [o.x, o.y1, o.x, o.y2];
+    const cy = o.y1;
+    return [o.x + o.x1 * c, cy + o.x1 * s, o.x + o.x2 * c, cy + o.x2 * s];
+  }
+  function segDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, l = dx * dx + dy * dy;
+    let u = l ? ((px - x1) * dx + (py - y1) * dy) / l : 0; u = Math.max(0, Math.min(1, u));
+    return Math.hypot(px - (x1 + u * dx), py - (y1 + u * dy));
+  }
+  function kill(r) {
+    if (!r.alive) return;
+    r.alive = false; r.dist = dist; sfx.boom(); shake(12); burst(r.x, r.y, COLORS[r.i], 30, 5); burst(r.x, r.y, '#ffd23f', 18, 4);
+    if (!racers.some(x => x.alive)) {
+      state = 'over'; t = 0;
+      const top = Math.max(...racers.map(x => x.dist));
+      if (racers.length === 1 && top > best) { best = top; localStorage.setItem('jetrush.best', String(best | 0)); }
+      setTimeout(() => sfx.lose(), 300);
+    }
+  }
+
+  function update() {
+    t++;
+    const P = G.players;
+    if (state === 'title') {
+      P.forEach((p, i) => { if (p.aP && !ready[i]) { ready[i] = true; sfx.coin(); if (!countdown) countdown = 180; } });
+      if (countdown) { countdown--; if (P[0].startP) countdown = 1; if (countdown === 1) startRound(); }
+      return;
+    }
+    if (state === 'over') { if (t > 60 && (G.any('aP') || G.any('startP'))) { ready.fill(false); P.forEach((p, i) => { if (p.on) ready[i] = true; }); startRound(); } return; }
+
+    speed = Math.min(13, 5.2 + dist / 2600);
+    dist += speed; scrollX += speed;
+    if (dist > nextObs) spawnObstacle();
+    if (dist > nextCoin) spawnCoins();
+    if (dist > nextMissile && dist > 1500) spawnMissile();
+
+    for (const r of racers) {
+      if (!r.alive) { r.x -= speed; continue; }
+      const p = P[r.i] || {};
+      const thrust = p.a || p.rt || p.y < -0.6;
+      if (thrust) { r.vy -= 0.62; r.flame = 1; if (t % 4 === 0) sfx.thrust(); } else r.flame *= 0.8;
+      r.vy += 0.42; r.vy = Math.max(-7.5, Math.min(9, r.vy)); r.y += r.vy;
+      if (r.y > FLOOR - 20) { r.y = FLOOR - 20; r.vy = 0; r.run += speed * 0.05; }
+      if (r.y < CEIL + 20) { r.y = CEIL + 20; r.vy = Math.max(0, r.vy); }
+      if (thrust && Math.random() < 0.8) G.burst(r.x - 14, r.y + 18, Math.random() < 0.5 ? '#ffb13d' : '#ff5a2d', 1, 2);
+    }
+    for (const o of obs) { o.x -= speed; o.rot += o.spin; }
+    obs = obs.filter(o => o.x > -200);
+    for (const c of coins) c.x -= speed;
+    coins = coins.filter(c => c.x > -20 && !c.got);
+    for (const m of missiles) {
+      if (m.warn > 0) { m.warn--; if (m.tgt.alive) m.y += (m.tgt.y - m.y) * 0.06; if (m.warn % 20 === 0) G.beep(1400, 0.05, 'square', 0.03); }
+      else m.x -= speed + 9;
+    }
+    missiles = missiles.filter(m => m.x > -80);
+
+    for (const r of racers) {
+      if (!r.alive) continue;
+      for (const o of obs) { const [x1, y1, x2, y2] = segPoints(o); if (segDist(r.x, r.y, x1, y1, x2, y2) < 22) kill(r); }
+      for (const m of missiles) if (m.warn <= 0 && Math.abs(m.x - r.x) < 28 && Math.abs(m.y - r.y) < 18) { kill(r); burst(m.x, m.y, '#fff', 12); m.x = -999; }
+      for (const c of coins) if (!c.got && Math.abs(c.x - r.x) < 24 && Math.abs(c.y - r.y) < 26) { c.got = true; r.coins++; sfx.coin(); }
+    }
+  }
+
+  function drawBg(g) {
+    const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#0d1424'); grd.addColorStop(1, '#1b2338'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    // back wall panels
+    g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 2;
+    const off = -(scrollX * 0.4) % 160;
+    for (let x = off; x < W; x += 160) { g.beginPath(); g.moveTo(x, CEIL); g.lineTo(x, FLOOR); g.stroke(); }
+    for (let x = off + 80; x < W; x += 320) { g.fillStyle = 'rgba(120,180,255,.08)'; g.fillRect(x, 120, 60, 110); g.fillStyle = 'rgba(255,210,63,.6)'; g.fillRect(x + 24, 98, 12, 8); }
+    // floor + ceiling
+    g.fillStyle = '#2a3350'; g.fillRect(0, FLOOR, W, H - FLOOR); g.fillRect(0, 0, W, CEIL);
+    g.fillStyle = '#ffd23f'; const s2 = -(scrollX % 60);
+    for (let x = s2; x < W; x += 60) { g.fillRect(x, FLOOR, 30, 6); g.fillRect(x + 30, CEIL - 6, 30, 6); }
+  }
+  function drawRacer(g, r) {
+    const c = COLORS[r.i];
+    g.save(); g.translate(r.x, r.y);
+    if (!r.alive) g.globalAlpha = 0.25;
+    g.fillStyle = '#5b667f'; G.rrect(-20, -10, 12, 26, 4); g.fill(); // jetpack
+    if (r.flame > 0.2) { g.fillStyle = '#ffb13d'; g.beginPath(); g.moveTo(-19, 16); g.lineTo(-9, 16); g.lineTo(-14, 16 + 18 * r.flame + Math.random() * 6); g.fill(); }
+    g.fillStyle = c; G.rrect(-10, -14, 22, 30, 7); g.fill();
+    g.fillStyle = '#f2d2b0'; g.beginPath(); g.arc(2, -20, 10, 0, 6.3); g.fill();
+    g.fillStyle = '#1b2338'; g.fillRect(4, -23, 6, 4);
+    const leg = r.y >= FLOOR - 21 ? Math.sin(r.run) * 6 : 3;
+    g.fillStyle = '#20283c'; g.fillRect(-6, 16, 6, 8 + leg); g.fillRect(4, 16, 6, 8 - leg);
+    g.restore();
+  }
+  function draw(g) {
+    drawBg(g);
+    for (const c of coins) { g.fillStyle = '#ffd23f'; g.beginPath(); g.ellipse(c.x, c.y, 9 * Math.abs(Math.cos((t + c.x) / 14)) + 2, 10, 0, 0, 6.3); g.fill(); }
+    for (const o of obs) {
+      const [x1, y1, x2, y2] = segPoints(o);
+      g.strokeStyle = 'rgba(120,200,255,.35)'; g.lineWidth = 16; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+      g.strokeStyle = '#d8f2ff'; g.lineWidth = 4 + Math.sin(t * 0.8) * 1.5; g.beginPath(); g.moveTo(x1, y1);
+      const n = 8; for (let k = 1; k <= n; k++) { const u = k / n; g.lineTo(x1 + (x2 - x1) * u + (k < n ? rand(-4, 4) : 0), y1 + (y2 - y1) * u + (k < n ? rand(-4, 4) : 0)); } g.stroke();
+      for (const [x, y] of [[x1, y1], [x2, y2]]) { g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(x, y, 12, 0, 6.3); g.fill(); g.fillStyle = '#7a5b00'; g.beginPath(); g.arc(x, y, 5, 0, 6.3); g.fill(); }
+    }
+    for (const m of missiles) {
+      if (m.warn > 0) { if ((m.warn / 6 | 0) % 2) { g.fillStyle = '#ff3d3d'; text('!', W - 34, m.y, 40, '#ff3d3d'); g.strokeStyle = '#ff3d3d'; g.lineWidth = 3; g.beginPath(); g.arc(W - 34, m.y, 22, 0, 6.3); g.stroke(); } }
+      else { g.fillStyle = '#c9ced8'; G.rrect(m.x - 22, m.y - 8, 44, 16, 8); g.fill(); g.fillStyle = '#ff3d3d'; g.fillRect(m.x - 22, m.y - 8, 10, 16); G.burst(m.x + 24, m.y, '#ff9f43', 1, 1.5); }
+    }
+    racers.forEach(r => drawRacer(g, r));
+    if (state !== 'title') {
+      text((dist / 10 | 0) + ' m', 24, 26, 26, '#fff', 'left');
+      racers.forEach((r, k) => { g.fillStyle = COLORS[r.i]; g.beginPath(); g.arc(W - 200 + k * 48, 26, 9, 0, 6.3); g.fill(); text(String(r.coins), W - 182 + k * 48, 27, 16, r.alive ? '#fff' : '#666', 'left'); });
+    }
+    if (state === 'title') {
+      G.panel('JET RUSH', ['Hold A to fly. Dodge zappers and missiles.', 'Every player presses A to join', countdown ? 'Starting in ' + Math.ceil(countdown / 60) + '…  (P1 Start = go now)' : (best ? 'Best: ' + (best / 10 | 0) + ' m' : 'Up to 4 players')], '#ffd23f');
+      ready.forEach((r, i) => { g.fillStyle = r ? COLORS[i] : 'rgba(255,255,255,.12)'; g.beginPath(); g.arc(W / 2 - 90 + i * 60, H / 2 + 140, 16, 0, 6.3); g.fill(); text('P' + (i + 1), W / 2 - 90 + i * 60, H / 2 + 172, 14, r ? '#fff' : '#666'); });
+    }
+    if (state === 'over') {
+      const sorted = racers.slice().sort((a, b) => b.dist - a.dist);
+      const lines = sorted.map((r, k) => `${k + 1}.  P${r.i + 1}   ${(r.dist / 10 | 0)} m   ·   ${r.coins} coins`);
+      lines.push(racers.length === 1 ? 'Best ' + (best / 10 | 0) + ' m  ·  Press A to fly again' : 'Press A for a rematch');
+      G.panel(racers.length > 1 ? 'P' + (sorted[0].i + 1) + ' WINS' : 'CRASHED', lines, racers.length > 1 ? COLORS[sorted[0].i] : '#ff4d5e');
+    }
+  }
+  G.run(update, draw);
+})();
+</script>
+</body></html>

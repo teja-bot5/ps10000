@@ -1,0 +1,198 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ember & Tide</title>
+<style>@font-face{font-family:PSUI;font-weight:800;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}@font-face{font-family:PSUI;font-weight:600;src:url(/vendor/fonts/source-sans-3-latin-600-normal.woff2)}@font-face{font-family:PSUI;font-weight:700;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}</style>
+</head><body>
+<script src="../lib.js"></script>
+<script>
+(function () {
+  const { W, H, text, sfx, burst, shake } = G;
+  const T = 32, COLS = 30, ROWS = 17;
+  const EMBER = 0, TIDE = 1;
+  const HUE = ['#ff7a3d', '#3db8ff'];
+  const NAME = ['Ember', 'Tide'];
+
+  // ------------------------------------------------------------ levels, built from parts so every jump is fair
+  // jump height is ~3.4 tiles, jump length ~4 tiles; platforms are 3 rows apart and overlap or nearly touch.
+  function level(spec) {
+    const m = []; for (let r = 0; r < ROWS; r++) m.push(new Array(COLS).fill('.'));
+    for (let r = 0; r < ROWS; r++) { m[r][0] = '#'; m[r][COLS - 1] = '#'; }
+    for (let c = 0; c < COLS; c++) { m[0][c] = '#'; m[16][c] = '#'; }
+    const L = { map: m, gems: [], doors: [], buttons: [], gates: [], spawn: spec.spawn, name: spec.name, tip: spec.tip };
+    (spec.plat || []).forEach(([r, c0, c1]) => { for (let c = c0; c <= c1; c++) m[r][c] = '#'; });
+    (spec.liq || []).forEach(([r, c0, c1, k]) => { for (let c = c0; c <= c1; c++) m[r][c] = k; });
+    (spec.gems || []).forEach(([r, c, k]) => { if (r + 1 < ROWS && 'LWG'.includes(m[r + 1][c])) r -= 1; L.gems.push({ x: c * T + 16, y: r * T + 16, k, got: false }); });
+    (spec.doors || []).forEach(([r, c, k]) => L.doors.push({ x: c * T, y: r * T - 48, k }));
+    (spec.buttons || []).forEach(([r, c]) => L.buttons.push({ x: c * T, y: r * T + 24, down: false }));
+    (spec.gates || []).forEach(([c, r0, r1]) => L.gates.push({ c, r0, r1, open: 0 }));
+    return L;
+  }
+  const LEVELS = [
+    level({
+      name: 'First Light', tip: 'Ember is safe in lava, Tide is safe in water. Green goo melts both.',
+      spawn: [[1, 15], [2, 15]],
+      plat: [[13, 18, 28], [10, 2, 16], [7, 18, 27], [4, 3, 16]],
+      liq: [[16, 6, 8, 'W'], [16, 11, 13, 'L'], [13, 22, 24, 'L'], [10, 7, 9, 'G'], [7, 21, 23, 'W']],
+      gems: [[15, 7, EMBER], [15, 12, TIDE], [12, 23, TIDE], [9, 5, EMBER], [9, 13, TIDE], [6, 22, EMBER], [3, 9, EMBER], [3, 14, TIDE]],
+      doors: [[4, 5, EMBER], [4, 11, TIDE]]
+    }),
+    level({
+      name: 'Gatekeeper', tip: 'Stand on a button to open every gate. Take turns.',
+      spawn: [[1, 15], [2, 15]],
+      plat: [[13, 16, 28], [10, 2, 14], [7, 16, 27], [4, 3, 17]],
+      liq: [[16, 9, 11, 'G'], [13, 20, 22, 'W'], [10, 6, 8, 'L'], [7, 22, 24, 'G']],
+      gems: [[15, 5, EMBER], [15, 14, TIDE], [12, 25, EMBER], [9, 4, TIDE], [9, 11, EMBER], [6, 19, TIDE], [6, 26, EMBER], [3, 6, TIDE]],
+      buttons: [[6, 26], [3, 5]],
+      gates: [[11, 1, 3]],
+      doors: [[4, 7, EMBER], [4, 9, TIDE]]
+    }),
+    level({
+      name: 'Twin Rivers', tip: 'Two pools, two paths. Ember goes left, Tide goes right.',
+      spawn: [[14, 15], [15, 15]],
+      plat: [[13, 1, 11], [13, 18, 28], [10, 4, 14], [10, 16, 26], [7, 1, 12], [7, 17, 28], [4, 9, 20]],
+      liq: [[16, 3, 6, 'L'], [16, 23, 26, 'W'], [13, 5, 7, 'L'], [13, 22, 24, 'W'], [10, 8, 10, 'G'], [10, 19, 21, 'G'], [7, 4, 6, 'W'], [7, 23, 25, 'L']],
+      gems: [[15, 4, EMBER], [15, 25, TIDE], [12, 6, EMBER], [12, 23, TIDE], [9, 12, TIDE], [9, 17, EMBER], [6, 2, TIDE], [6, 27, EMBER], [3, 14, EMBER], [3, 15, TIDE]],
+      doors: [[4, 11, EMBER], [4, 18, TIDE]]
+    }),
+    level({
+      name: 'The Long Climb', tip: 'Slow down. Every ledge is a choice.',
+      spawn: [[2, 15], [27, 15]],
+      plat: [[13, 4, 12], [13, 17, 25], [10, 9, 20], [7, 2, 10], [7, 19, 27], [4, 7, 22]],
+      liq: [[16, 7, 9, 'W'], [16, 20, 22, 'L'], [16, 13, 16, 'G'], [13, 8, 10, 'L'], [13, 19, 21, 'W'], [10, 13, 16, 'G'], [7, 5, 7, 'L'], [7, 22, 24, 'W'], [4, 13, 16, 'G']],
+      gems: [[15, 8, TIDE], [15, 21, EMBER], [12, 9, EMBER], [12, 20, TIDE], [9, 10, TIDE], [9, 19, EMBER], [6, 6, EMBER], [6, 23, TIDE], [3, 9, TIDE], [3, 20, EMBER]],
+      doors: [[4, 10, EMBER], [4, 19, TIDE]]
+    })
+  ];
+
+  let li = +(localStorage.getItem('embertide.level') || 0) % LEVELS.length;
+  let L, heroes, state = 'title', t = 0, timer = 0, active = 0, deadMsg = '';
+
+  function load(i) {
+    li = i; L = JSON.parse(JSON.stringify(LEVELS[i])); // fresh copy
+    heroes = [0, 1].map(k => ({ k, x: L.spawn[k][0] * T + 6, y: L.spawn[k][1] * T + 2, w: 20, h: 28, vx: 0, vy: 0, ground: false, face: 1, inDoor: false, alive: true }));
+    state = 'play'; t = 0; timer = 0;
+  }
+
+  function solid(c, r, h) {
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return true;
+    const v = L.map[r][c];
+    if (v === '#' || v === 'L' || v === 'W' || v === 'G') return true;
+    for (const g of L.gates) if (g.c === c && r >= g.r0 && r <= g.r1 && g.open < 0.95) return true;
+    return false;
+  }
+  function move(h) {
+    h.x += h.vx;
+    if (h.vx > 0) { const c = Math.floor((h.x + h.w) / T); for (const r of [Math.floor(h.y / T), Math.floor((h.y + h.h - 1) / T)]) if (solid(c, r)) { h.x = c * T - h.w - 0.01; h.vx = 0; } }
+    if (h.vx < 0) { const c = Math.floor(h.x / T); for (const r of [Math.floor(h.y / T), Math.floor((h.y + h.h - 1) / T)]) if (solid(c, r)) { h.x = (c + 1) * T + 0.01; h.vx = 0; } }
+    h.y += h.vy; h.ground = false;
+    if (h.vy > 0) { const r = Math.floor((h.y + h.h) / T); for (const c of [Math.floor(h.x / T), Math.floor((h.x + h.w - 1) / T)]) if (solid(c, r)) { h.y = r * T - h.h; h.vy = 0; h.ground = true; } }
+    if (h.vy < 0) { const r = Math.floor(h.y / T); for (const c of [Math.floor(h.x / T), Math.floor((h.x + h.w - 1) / T)]) if (solid(c, r)) { h.y = (r + 1) * T + 0.01; h.vy = 0; } }
+  }
+  function die(h, why) {
+    if (!h.alive) return;
+    h.alive = false; sfx.boom(); shake(10); burst(h.x + 10, h.y + 14, HUE[h.k], 36, 5);
+    deadMsg = why; state = 'dead'; t = 0;
+  }
+
+  function update() {
+    t++;
+    const P = G.players;
+    const two = P[1] && P[1].on;
+    if (state === 'title') { if (G.any('aP') || G.any('startP')) { load(li); sfx.win(); } if (P[0].leftP) li = (li + LEVELS.length - 1) % LEVELS.length; if (P[0].rightP) li = (li + 1) % LEVELS.length; return; }
+    if (state === 'dead') { if (t > 50 && (G.any('aP') || G.any('startP'))) load(li); return; }
+    if (state === 'clear') { if (t > 60 && (G.any('aP') || G.any('startP'))) { const n = (li + 1) % LEVELS.length; localStorage.setItem('embertide.level', String(n)); load(n); } return; }
+    if (P.some(p => p.startP)) { load(li); return; }
+    timer++;
+    // one player: Y / LB / RB swaps who you control
+    if (!two && (P[0].ybP || P[0].lbP || P[0].rbP)) { active = 1 - active; sfx.click(); }
+    // buttons
+    L.buttons.forEach(b => b.down = heroes.some(h => h.alive && h.x + h.w > b.x + 4 && h.x < b.x + T - 4 && Math.abs(h.y + h.h - (b.y + 8)) < 10));
+    const anyDown = L.buttons.some(b => b.down);
+    L.gates.forEach(g => { g.open += ((anyDown ? 1 : 0) - g.open) * 0.12; });
+    for (const h of heroes) {
+      if (!h.alive) continue;
+      const p = two ? P[h.k] : (h.k === active ? P[0] : {});
+      const ix = p && p.x ? p.x : 0;
+      h.vx += ix * 0.9; h.vx *= 0.78; if (Math.abs(h.vx) < 0.05) h.vx = 0;
+      h.vx = Math.max(-3.4, Math.min(3.4, h.vx));
+      if (ix) h.face = Math.sign(ix);
+      if (p && (p.aP || p.upP) && h.ground) { h.vy = -10.5; sfx.jump(); }
+      if (p && !p.a && !(p.y < -0.5) && h.vy < -3) h.vy += 0.6; // short hop when released
+      h.vy = Math.min(11, h.vy + 0.5);
+      // gates pushing out
+      move(h);
+      // hazards: tile under feet
+      const under = [Math.floor((h.x + 3) / T), Math.floor((h.x + h.w - 3) / T)].map(c => (L.map[Math.floor((h.y + h.h + 2) / T)] || [])[c]);
+      if (h.ground) {
+        if (under.includes('G')) die(h, NAME[h.k] + ' touched the goo');
+        else if (h.k === EMBER && under.includes('W')) die(h, 'Ember fell in water');
+        else if (h.k === TIDE && under.includes('L')) die(h, 'Tide fell in lava');
+      }
+      // gems
+      for (const gm of L.gems) if (!gm.got && gm.k === h.k && Math.abs(gm.x - (h.x + 10)) < 20 && Math.abs(gm.y - (h.y + 14)) < 22) { gm.got = true; sfx.coin(); burst(gm.x, gm.y, HUE[h.k], 12, 3); }
+      const d = L.doors.find(d => d.k === h.k);
+      h.inDoor = d && h.x + h.w / 2 > d.x && h.x + h.w / 2 < d.x + T && Math.abs(h.y + h.h - (d.y + 48)) < 6;
+    }
+    if (heroes.every(h => h.inDoor)) { state = 'clear'; t = 0; sfx.win(); }
+  }
+
+  // ------------------------------------------------------------ drawing
+  function drawHero(g, h) {
+    if (!h.alive) return;
+    const c = HUE[h.k], x = h.x, y = h.y;
+    // flame / wave hair
+    g.fillStyle = c;
+    g.beginPath();
+    if (h.k === EMBER) { for (let k = 0; k < 3; k++) { const fx = x + 3 + k * 7, fy = y - 6 - Math.abs(Math.sin(t / 6 + k)) * 6; g.moveTo(fx, y + 4); g.lineTo(fx + 4, fy); g.lineTo(fx + 8, y + 4); } }
+    else { g.ellipse(x + 10, y + 2, 13, 8 + Math.sin(t / 8) * 2, 0, Math.PI, 0); }
+    g.fill();
+    g.fillStyle = c; G.rrect(x, y + 2, h.w, h.h - 2, 7); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 10 + h.face * 3 - 4, y + 11, 3.2, 0, 6.3); g.arc(x + 10 + h.face * 3 + 4, y + 11, 3.2, 0, 6.3); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(x + 10 + h.face * 4 - 4, y + 11, 1.6, 0, 6.3); g.arc(x + 10 + h.face * 4 + 4, y + 11, 1.6, 0, 6.3); g.fill();
+    if (!(G.players[1] && G.players[1].on) && h.k === active) { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x + 4, y - 18); g.lineTo(x + 16, y - 18); g.lineTo(x + 10, y - 11); g.fill(); }
+  }
+  function draw(g) {
+    const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#1b1a2e'); grd.addColorStop(1, '#2d2238'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    // stone backdrop pattern
+    g.fillStyle = 'rgba(255,255,255,.025)';
+    for (let r = 0; r < ROWS; r++) for (let c = (r % 2); c < COLS; c += 2) g.fillRect(c * T, r * T, T, T);
+    if (!L) L = JSON.parse(JSON.stringify(LEVELS[li]));
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const v = L.map[r][c], x = c * T, y = r * T;
+      if (v === '#') { g.fillStyle = '#4a4560'; g.fillRect(x, y, T, T); g.fillStyle = '#5d5878'; g.fillRect(x, y, T, 4); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x, y + T - 3, T, 3); }
+      else if (v === 'L' || v === 'W' || v === 'G') {
+        g.fillStyle = '#4a4560'; g.fillRect(x, y + 12, T, T - 12);
+        const col = v === 'L' ? '#ff5a1f' : v === 'W' ? '#2f8cff' : '#5ee04a';
+        g.fillStyle = col; const wv = Math.sin(t / 10 + c) * 2;
+        g.fillRect(x, y + 2 + wv, T, 12 - wv);
+        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x + ((t / 3 + c * 9) % 26), y + 4 + wv, 6, 2);
+      }
+    }
+    // gates
+    for (const gt of L.gates) { const h = (gt.r1 - gt.r0 + 1) * T * (1 - gt.open); g.fillStyle = '#c9a23b'; g.fillRect(gt.c * T + 8, gt.r0 * T, 16, h); g.fillStyle = '#8a6b1d'; for (let y = gt.r0 * T + 6; y < gt.r0 * T + h; y += 14) g.fillRect(gt.c * T + 8, y, 16, 4); }
+    // buttons
+    for (const b of L.buttons) { g.fillStyle = '#c9a23b'; g.fillRect(b.x + 6, b.y + (b.down ? 5 : 0), T - 12, b.down ? 3 : 8); g.fillStyle = '#4a4560'; g.fillRect(b.x + 2, b.y + 8, T - 4, 2); }
+    // doors
+    for (const d of L.doors) {
+      g.fillStyle = '#1a1626'; G.rrect(d.x + 2, d.y, T - 4, 48, 8); g.fill();
+      g.strokeStyle = HUE[d.k]; g.lineWidth = 3; G.rrect(d.x + 2, d.y, T - 4, 48, 8); g.stroke();
+      const inside = heroes && heroes.find(h => h.k === d.k && h.inDoor);
+      g.fillStyle = HUE[d.k]; g.globalAlpha = inside ? 0.7 : 0.2; G.rrect(d.x + 6, d.y + 4, T - 12, 40, 6); g.fill(); g.globalAlpha = 1;
+      text(d.k === EMBER ? '▲' : '●', d.x + T / 2, d.y + 24, 14, HUE[d.k]);
+    }
+    // gems
+    for (const gm of L.gems) if (!gm.got) { g.save(); g.translate(gm.x, gm.y + Math.sin(t / 12 + gm.x) * 3); g.rotate(Math.PI / 4); g.fillStyle = HUE[gm.k]; g.fillRect(-7, -7, 14, 14); g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(-7, -7, 5, 5); g.restore(); }
+    if (heroes) heroes.forEach(h => drawHero(g, h));
+    // HUD
+    if (state !== 'title') {
+      const got = L.gems.filter(x => x.got).length;
+      g.fillStyle = 'rgba(0,0,0,.45)'; G.rrect(10, 6, 300, 22, 8); g.fill();
+      text(`Level ${li + 1}: ${L.name}   ·   ${(timer / 60 | 0)}s   ·   gems ${got}/${L.gems.length}`, 18, 17, 13, '#fff', 'left', 700);
+    }
+    if (state === 'title') G.panel('EMBER & TIDE', ['Two friends, one temple. Reach both doors together.', 'P1 is Ember, P2 is Tide. Solo: Y / LB / RB switches hero.', `Level ${li + 1}: ${LEVELS[li].name}   ◀ ▶ to choose · A to start`], '#ff7a3d');
+    if (state === 'dead') G.panel('OOPS!', [deadMsg, LEVELS[li].tip, 'Press A to try again'], '#ff4d5e');
+    if (state === 'clear') { const got = L.gems.filter(x => x.got).length; G.panel('LEVEL CLEAR', [`Time ${(timer / 60).toFixed(1)}s   ·   Gems ${got}/${L.gems.length}`, got === L.gems.length ? 'Perfect run!' : 'Find every gem for a perfect run', 'Press A for the next level'], '#3ddc84'); }
+  }
+  G.run(update, draw);
+})();
+</script>
+</body></html>

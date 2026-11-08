@@ -1,0 +1,168 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brawl Box</title>
+<style>@font-face{font-family:PSUI;font-weight:800;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}@font-face{font-family:PSUI;font-weight:600;src:url(/vendor/fonts/source-sans-3-latin-600-normal.woff2)}@font-face{font-family:PSUI;font-weight:700;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}</style>
+</head><body>
+<script src="../lib.js"></script>
+<script>
+(function () {
+  const { W, H, text, sfx, burst, shake, COLORS, rand } = G;
+  const PLAT = [
+    { x: 170, y: 400, w: 620, solid: true },
+    { x: 220, y: 292, w: 150, solid: false },
+    { x: 590, y: 292, w: 150, solid: false },
+    { x: 405, y: 196, w: 150, solid: false }
+  ];
+  const SPAWN = [[260, 340], [700, 340], [360, 240], [600, 240]];
+  let state = 'title', t = 0, fighters = [], wins = [0, 0, 0, 0], roundWinner = -1;
+  const join = [null, null, null, null]; // 'human' | 'cpu' | null
+  const STOCKS = 3, TO_WIN = 3;
+
+  function mk(i, kind) { return { i, kind, x: SPAWN[i][0], y: SPAWN[i][1], vx: 0, vy: 0, face: i % 2 ? -1 : 1, dmg: 0, stocks: STOCKS, jumps: 2, onGround: false, punch: 0, cool: 0, dash: 0, dashCool: 0, hit: 0, inv: 90, alive: true, drop: 0, ai: { t: 0 } }; }
+  function startRound() { fighters = join.map((k, i) => k ? mk(i, k) : null).filter(Boolean); state = 'play'; t = 0; roundWinner = -1; }
+
+  function input(f) {
+    if (f.kind === 'human') { const p = G.players[f.i] || {}; return { x: p.x || 0, y: p.y || 0, jump: p.aP || p.upP, punch: p.xbP, dash: p.bP }; }
+    // CPU
+    const foes = fighters.filter(o => o !== f && o.alive);
+    let tgt = foes.sort((a, b) => Math.abs(a.x - f.x) - Math.abs(b.x - f.x))[0];
+    const out = { x: 0, y: 0, jump: false, punch: false, dash: false };
+    const offStage = f.x < PLAT[0].x - 10 || f.x > PLAT[0].x + PLAT[0].w + 10;
+    if (offStage) { out.x = f.x < W / 2 ? 1 : -1; if (f.vy > 0 && f.jumps > 0 && f.y > 330) out.jump = true; return out; }
+    if (!tgt) return out;
+    const dx = tgt.x - f.x, dy = tgt.y - f.y;
+    f.ai.t--;
+    if (Math.abs(dx) > 40) out.x = Math.sign(dx);
+    if (dy < -60 && f.onGround && Math.random() < 0.05) out.jump = true;
+    if (Math.abs(dx) < 54 && Math.abs(dy) < 40 && f.ai.t <= 0) { out.punch = true; f.ai.t = 18 + Math.random() * 22 | 0; }
+    if (Math.abs(dx) > 200 && Math.random() < 0.008) out.dash = true;
+    return out;
+  }
+
+  function update() {
+    t++;
+    const P = G.players;
+    if (state === 'title') {
+      P.forEach((p, i) => { if (p.aP && join[i] !== 'human') { join[i] = 'human'; sfx.coin(); } if (p.bP && join[i] === 'human') { join[i] = null; sfx.click(); } });
+      if (P.some(p => p.ybP)) { const k = join.indexOf(null); if (k >= 0) { join[k] = 'cpu'; sfx.click(); } else { const c = join.lastIndexOf('cpu'); if (c >= 0) { join[c] = null; sfx.click(); } } }
+      const n = join.filter(Boolean).length;
+      if (P.some(p => p.startP)) {
+        if (n === 1) { join[join.indexOf(null)] = 'cpu'; }
+        if (join.filter(Boolean).length >= 2) { wins = [0, 0, 0, 0]; startRound(); sfx.win(); }
+      }
+      return;
+    }
+    if (state === 'roundover' || state === 'matchover') {
+      if (t > 90 && (G.any('aP') || G.any('startP'))) { if (state === 'matchover') { wins = [0, 0, 0, 0]; state = 'title'; } else startRound(); }
+      return;
+    }
+    for (const f of fighters) {
+      if (!f.alive) continue;
+      const c = input(f);
+      if (f.inv > 0) f.inv--;
+      if (f.cool > 0) f.cool--; if (f.dashCool > 0) f.dashCool--; if (f.drop > 0) f.drop--;
+      if (f.hit > 0) { f.hit--; }
+      else {
+        const acc = f.onGround ? 0.9 : 0.55, max = 5.6;
+        if (c.x) { f.vx += c.x * acc; f.face = Math.sign(c.x); }
+        else f.vx *= f.onGround ? 0.72 : 0.95;
+        if (f.dash <= 0) f.vx = Math.max(-max, Math.min(max, f.vx));
+        if (c.jump && f.jumps > 0) { f.vy = f.jumps === 2 ? -12.4 : -10.6; f.jumps--; f.onGround = false; sfx.jump(); burst(f.x, f.y + 22, 'rgba(255,255,255,.6)', 6, 2); }
+        if (c.y > 0.6 && f.onGround && !f.onSolid) { f.drop = 14; f.onGround = false; }
+        if (c.punch && f.cool <= 0) { f.punch = 12; f.cool = 22; sfx.click(); }
+        if (c.dash && f.dashCool <= 0) { f.dash = 10; f.dashCool = 50; f.vx = f.face * 12; f.vy *= 0.3; sfx.thrust(); }
+      }
+      if (f.dash > 0) { f.dash--; G.burst(f.x - f.face * 14, f.y, COLORS[f.i], 1, 1); }
+      f.vy += f.dash > 0 ? 0.2 : 0.62; f.vy = Math.min(14, f.vy);
+      const oy = f.y;
+      f.x += f.vx; f.y += f.vy;
+      f.onGround = false; f.onSolid = false;
+      for (const p of PLAT) {
+        if (f.x > p.x - 4 && f.x < p.x + p.w + 4 && f.vy >= 0 && oy + 22 <= p.y + 1 && f.y + 22 >= p.y && !(f.drop > 0 && !p.solid)) {
+          f.y = p.y - 22; f.vy = 0; f.onGround = true; f.onSolid = p.solid; f.jumps = 2;
+        }
+      }
+      // punch hits
+      if (f.punch > 0) {
+        f.punch--;
+        if (f.punch <= 9 && f.punch >= 5) {
+          const hx = f.x + f.face * 34, hy = f.y - 4;
+          for (const o of fighters) {
+            if (o === f || !o.alive || o.inv > 0 || o.hitBy === f.i + ':' + f.cool) continue;
+            if (Math.abs(o.x - hx) < 30 && Math.abs(o.y - hy) < 30) {
+              o.dmg += 7 + (Math.random() * 4 | 0);
+              const kb = 4.5 + o.dmg * 0.11;
+              o.vx = f.face * kb; o.vy = -kb * 0.75; o.hit = 8 + o.dmg * 0.12 | 0; o.hitBy = f.i + ':' + f.cool;
+              sfx.punch(); shake(4 + Math.min(10, o.dmg / 15)); burst(hx, hy, '#fff', 10, 3);
+            }
+          }
+        }
+      }
+      // body bump during dash
+      if (f.dash > 0) for (const o of fighters) if (o !== f && o.alive && o.inv <= 0 && Math.abs(o.x - f.x) < 30 && Math.abs(o.y - f.y) < 34) { o.vx = f.face * 7; o.vy = -4; o.dmg += 3; f.dash = 0; sfx.punch(); }
+      // blast zones
+      if (f.x < -110 || f.x > W + 110 || f.y > H + 90 || f.y < -260) {
+        f.stocks--; sfx.boom(); shake(14);
+        burst(G.clamp(f.x, 10, W - 10), G.clamp(f.y, 10, H - 10), COLORS[f.i], 40, 6);
+        if (f.stocks <= 0) { f.alive = false; }
+        else { Object.assign(f, { x: W / 2, y: 120, vx: 0, vy: 0, dmg: 0, inv: 120, jumps: 2, hit: 0, dash: 0 }); }
+        const alive = fighters.filter(x => x.alive);
+        if (alive.length <= 1) {
+          roundWinner = alive.length ? alive[0].i : -1;
+          if (roundWinner >= 0) wins[roundWinner]++;
+          state = wins[roundWinner] >= TO_WIN ? 'matchover' : 'roundover'; t = 0;
+          sfx.win();
+        }
+      }
+    }
+  }
+
+  function drawFighter(g, f) {
+    if (!f.alive) return;
+    const c = COLORS[f.i];
+    g.save(); g.translate(f.x, f.y);
+    if (f.inv > 0 && (t / 4 | 0) % 2) g.globalAlpha = 0.45;
+    const squash = f.onGround ? 1 : 0.92;
+    g.fillStyle = 'rgba(0,0,0,.25)'; if (f.onGround) { g.beginPath(); g.ellipse(0, 23, 18, 4, 0, 0, 6.3); g.fill(); }
+    g.fillStyle = f.hit > 0 ? '#fff' : c;
+    G.rrect(-18, -22 / squash, 36, 44 * squash, 12); g.fill();
+    // eyes
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(f.face * 6 - 5, -8, 6, 0, 6.3); g.arc(f.face * 6 + 7, -8, 6, 0, 6.3); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(f.face * 8 - 5, -8, 3, 0, 6.3); g.arc(f.face * 8 + 7, -8, 3, 0, 6.3); g.fill();
+    // fist
+    const ext = f.punch > 0 ? (f.punch > 8 ? (12 - f.punch) * 7 : f.punch * 3.5) : 0;
+    g.fillStyle = f.hit > 0 ? '#fff' : c; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2;
+    g.beginPath(); g.arc(f.face * (20 + ext), 4, 9, 0, 6.3); g.fill(); g.stroke();
+    g.restore();
+    text('P' + (f.i + 1) + (f.kind === 'cpu' ? ' CPU' : ''), f.x, f.y - 38, 12, c);
+  }
+  function draw(g) {
+    const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#2a1240'); grd.addColorStop(0.6, '#5a1e4d'); grd.addColorStop(1, '#ff6b5a'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,220,180,.18)'; g.beginPath(); g.arc(W / 2, 520, 220, 0, 6.3); g.fill();
+    for (let k = 0; k < 7; k++) { g.fillStyle = 'rgba(20,8,30,.6)'; g.fillRect(k * 150 - 20, 330 + (k % 3) * 30, 110, 300); }
+    for (const p of PLAT) {
+      g.fillStyle = p.solid ? '#2b2f45' : '#3c425f'; G.rrect(p.x, p.y, p.w, p.solid ? 70 : 14, 8); g.fill();
+      g.fillStyle = p.solid ? '#5ce0b8' : '#9aa6ff'; g.fillRect(p.x + 6, p.y, p.w - 12, 4);
+    }
+    fighters.forEach(f => drawFighter(g, f));
+    // HUD
+    if (state !== 'title') {
+      fighters.forEach((f, k) => {
+        const x = W / 2 - fighters.length * 95 + k * 190 + 95, y = H - 34;
+        g.fillStyle = 'rgba(8,10,20,.72)'; G.rrect(x - 80, y - 26, 160, 54, 12); g.fill();
+        g.fillStyle = COLORS[f.i]; g.fillRect(x - 80, y - 26, 6, 54);
+        text(f.alive ? Math.round(f.dmg) + '%' : 'OUT', x - 12, y - 4, 26, f.dmg > 100 ? '#ff6b5a' : '#fff');
+        for (let s = 0; s < STOCKS; s++) { g.fillStyle = s < f.stocks ? COLORS[f.i] : 'rgba(255,255,255,.15)'; g.beginPath(); g.arc(x + 46 + (s % 2) * 14, y - 12 + (s >> 1) * 14, 5, 0, 6.3); g.fill(); }
+        text('★'.repeat(wins[f.i]), x - 12, y + 18, 12, '#ffd23f');
+      });
+    }
+    if (state === 'title') {
+      G.panel('BRAWL BOX', ['Knock everyone off the stage. 3 lives each, first to 3 rounds.', 'A: join   ·   Y: add / remove CPU   ·   Start: fight!', 'Move · A jump (twice) · X punch · B dash · Down: drop through'], '#ff3d7f');
+      join.forEach((k, i) => { g.fillStyle = k ? COLORS[i] : 'rgba(255,255,255,.1)'; G.rrect(W / 2 - 230 + i * 120, H / 2 + 120, 100, 54, 12); g.fill(); text(k === 'cpu' ? 'CPU' : k ? 'P' + (i + 1) : 'Press A', W / 2 - 180 + i * 120, H / 2 + 147, k ? 20 : 14, k ? '#fff' : '#888'); });
+    }
+    if (state === 'roundover') G.panel(roundWinner >= 0 ? 'P' + (roundWinner + 1) + ' TAKES THE ROUND' : 'DRAW', ['Score: ' + fighters.map(f => 'P' + (f.i + 1) + ' ' + wins[f.i]).join('   '), 'Press A for the next round'], roundWinner >= 0 ? COLORS[roundWinner] : '#fff');
+    if (state === 'matchover') G.panel('P' + (roundWinner + 1) + ' WINS THE MATCH!', ['First to ' + TO_WIN + ' rounds', 'Press A to go back to the lobby'], COLORS[roundWinner]);
+  }
+  G.run(update, draw);
+})();
+</script>
+</body></html>

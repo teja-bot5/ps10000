@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS10,000 Emulator</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  #game { width: 100%; height: 100%; }
+  /* hide EmulatorJS chrome: PS10,000 provides its own pause menu */
+  .ejs_menu_bar, .ejs_virtualGamepad_parent, .ejs_context_menu, .ejs_start_button, .ejs_ad_iframe, .ejs_popup_container { display: none !important; }
+  .ejs_parent { background: #000 !important; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<script>
+  window.PS_GAME_CFG = { mode: 'pad', retro: true };
+</script>
+<script src="/shim/shim.js"></script>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const stateId = 'state:' + (q.get('id') || 'x');
+
+  // tiny IndexedDB key/value store for save states
+  function db() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('ps10k-states', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('s');
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+  async function put(k, v) { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('s', 'readwrite'); t.objectStore('s').put(v, k); t.oncomplete = () => res(true); t.onerror = () => rej(t.error); }); }
+  async function get(k) { const d = await db(); return new Promise((res) => { const t = d.transaction('s', 'readonly'); const r = t.objectStore('s').get(k); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); }
+
+  function gm() { return window.EJS_emulator && window.EJS_emulator.gameManager; }
+  let started = false;
+
+  window.PSEmu = {
+    pause(on) { try { const g = gm(); if (g) g.toggleMainLoop(on ? 0 : 1); } catch (e) {} },
+    async save() { try { const g = gm(); if (!g) return false; const st = g.getState(); await put(stateId, st); parent.postMessage({ ps10k: 'saved' }, '*'); return true; } catch (e) { console.error(e); return false; } },
+    async load() { try { const g = gm(); const st = await get(stateId); if (!g || !st) return false; g.loadState(st); return true; } catch (e) { console.error(e); return false; } },
+    autosave() { if (started) this.save(); }
+  };
+
+  window.PS10K_OFFLINE = true;
+  window.EJS_player = '#game';
+  window.EJS_core = q.get('core') || q.get('system') || 'nes';
+  window.EJS_gameUrl = q.get('rom');
+  window.EJS_gameName = (q.get('rom') || '').split('/').pop();
+  window.EJS_pathtodata = '/emu/data/';
+  window.EJS_DEBUG_XX = true;            // load the unminified sources shipped in the APK
+  window.EJS_startOnLoaded = true;
+  window.EJS_color = '#3d8bff';
+  window.EJS_backgroundColor = '#000';
+  window.EJS_volume = 1;
+  window.EJS_disableDatabases = false;
+  window.EJS_threads = false;
+  window.EJS_Buttons = { playPause: false, restart: false, mute: false, settings: false, fullscreen: false, saveState: false, loadState: false, screenRecord: false, gamepad: false, cheat: false, volume: false, saveSavFiles: false, loadSavFiles: false, quickSave: false, quickLoad: false, screenshot: false, cacheManager: false, exitEmulation: false, netplay: false, diskButton: false, contextMenu: false };
+  window.EJS_defaultOptions = { 'shader': 'disabled', 'save-state-location': 'browser' };
+  window.EJS_onGameStart = function () {
+    started = true;
+    if (q.get('load') === '1') setTimeout(() => window.PSEmu.load(), 400);
+    // autosave every 2 minutes so a crash or power cut loses little
+    setInterval(() => window.PSEmu.save(), 120000);
+    // console player slot N always drives emulator player N (not "first pad that connected")
+    setInterval(() => {
+      const em = window.EJS_emulator; if (!em || !em.gamepadSelection) return;
+      const pads = navigator.getGamepads();
+      for (let i = 0; i < em.gamepadSelection.length && i < 4; i++) em.gamepadSelection[i] = pads[i] ? pads[i].id + '_' + pads[i].index : '';
+    }, 500);
+  };
+  window.addEventListener('error', e => { if (!started && /wasm|core/i.test(String(e.message))) parent.postMessage({ ps10k: 'error', msg: String(e.message).slice(0, 80) }, '*'); });
+})();
+</script>
+<script src="/emu/data/loader.js"></script>
+</body>
+</html>

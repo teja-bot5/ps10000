@@ -1,0 +1,220 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Night Shift</title>
+<style>@font-face{font-family:PSUI;font-weight:800;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}@font-face{font-family:PSUI;font-weight:600;src:url(/vendor/fonts/source-sans-3-latin-600-normal.woff2)}@font-face{font-family:PSUI;font-weight:700;src:url(/vendor/fonts/source-sans-3-latin-700-normal.woff2)}</style>
+</head><body>
+<script src="../lib.js"></script>
+<script>
+(function () {
+  const { W, H, text, sfx, burst, shake } = G;
+  const T = 32, COLS = 30, ROWS = 17;
+  // # wall, . floor, S start, V van, $ loot, c camera (on a wall tile)
+  const LEVELS = [
+    {
+      name: 'The Corner Shop',
+      map: [
+        '##############################',
+        '#S...#.........#.............#',
+        '#....#.........#......$......#',
+        '#....#....$....#.............#',
+        '#....#.........######..#######',
+        '#....#.........#.............#',
+        '#..............#.............#',
+        '#....#.........#.......$.....#',
+        '######...#######.............#',
+        '#....#...#.....#######...#####',
+        '#....#...#.....#.............#',
+        '#..$.....#.....#.............#',
+        '#....#...#...................#',
+        '#....#...#.....#..........V..#',
+        '#....#####.....#######...#####',
+        '#..............#.............#',
+        '##############################'
+      ],
+      guards: [
+        { path: [[10, 2], [13, 2], [13, 6], [7, 6]], speed: 0.9 },
+        { path: [[17, 10], [27, 10], [27, 12], [17, 12]], speed: 1.0 }
+      ],
+      cams: [{ c: 22, r: 4, dir: Math.PI / 2, sweep: 0.7 }]
+    },
+    {
+      name: 'Gallery Night',
+      map: [
+        '##############################',
+        '#S.....#..............#.....$#',
+        '#......#..............#......#',
+        '#......#....$....$....#......#',
+        '#......#..............#......#',
+        '#......####...####....####..##',
+        '#............................#',
+        '#............................#',
+        '####..######....######..######',
+        '#.........#......#...........#',
+        '#..$......#......#.......$...#',
+        '#.........#......#...........#',
+        '#.........#..##..#...........#',
+        '#............................#',
+        '#.........#......#........V..#',
+        '#.........#......#...........#',
+        '##############################'
+      ],
+      guards: [
+        { path: [[9, 2], [21, 2], [21, 4], [9, 4]], speed: 1.0 },
+        { path: [[2, 6], [27, 6], [27, 7], [2, 7]], speed: 1.25 },
+        { path: [[20, 10], [27, 10], [27, 14], [20, 14]], speed: 0.9 }
+      ],
+      cams: [{ c: 13, r: 12, dir: -Math.PI / 2, sweep: 0.9 }, { c: 4, r: 8, dir: Math.PI / 2, sweep: 0.6 }]
+    },
+    {
+      name: 'The Vault',
+      map: [
+        '##############################',
+        '#S.......#..........#........#',
+        '#........#..........#...$....#',
+        '#........#...####...#........#',
+        '#............#$$#............#',
+        '#........#...#..#...#........#',
+        '#........#...##.#...#........#',
+        '####.#####..........#####.####',
+        '#............................#',
+        '#..####..####..####..####....#',
+        '#..#..#..#..#..#..#..#..#....#',
+        '#..#$.#..#..#..#..#..#.$#....#',
+        '#..#..#..#..#..#..#..#..#....#',
+        '#..##.#..##.#..##.#..##.#....#',
+        '#........................V...#',
+        '#............................#',
+        '##############################'
+      ],
+      guards: [
+        { path: [[11, 2], [18, 2], [18, 7], [11, 7]], speed: 1.1 },
+        { path: [[1, 8], [28, 8]], speed: 1.4 },
+        { path: [[26, 9], [28, 9], [28, 15], [26, 15]], speed: 1.0 },
+        { path: [[2, 14], [20, 14], [20, 15], [2, 15]], speed: 1.2 }
+      ],
+      cams: [{ c: 14, r: 3, dir: Math.PI / 2, sweep: 0.8 }, { c: 21, r: 4, dir: Math.PI, sweep: 0.7 }]
+    }
+  ];
+
+  let li = +(localStorage.getItem('nightshift.level') || 0) % LEVELS.length;
+  let L, me, guards, cams, loot, van, state = 'title', t = 0, timer = 0, caughtBy = null, alert = 0;
+
+  function load(i) {
+    li = i; const src = LEVELS[i];
+    L = src.map.map(row => (row + '#'.repeat(COLS)).slice(0, COLS).split(''));
+    loot = []; van = null;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const v = L[r][c];
+      if (v === 'S') { me = { x: c * T + 16, y: r * T + 16, face: 0, step: 0 }; L[r][c] = '.'; }
+      if (v === '$') { loot.push({ x: c * T + 16, y: r * T + 16, got: false }); L[r][c] = '.'; }
+      if (v === 'V') { van = { x: c * T + 16, y: r * T + 16 }; L[r][c] = '.'; }
+    }
+    guards = src.guards.map(gd => ({ path: gd.path.map(([c, r]) => [c * T + 16, r * T + 16]), speed: gd.speed, k: 1, x: gd.path[0][0] * T + 16, y: gd.path[0][1] * T + 16, dir: 0, look: 0, wait: 0, sus: 0 }));
+    cams = src.cams.map(c => ({ x: c.c * T + 16, y: c.r * T + 16, base: c.dir, sweep: c.sweep, dir: c.dir, sus: 0 }));
+    state = 'play'; t = 0; timer = 0; alert = 0; caughtBy = null;
+  }
+  const wall = (x, y) => { const c = Math.floor(x / T), r = Math.floor(y / T); return r < 0 || c < 0 || r >= ROWS || c >= COLS || L[r][c] === '#'; };
+  function sees(ox, oy, dir, fov, range, tx, ty) {
+    const dx = tx - ox, dy = ty - oy, d = Math.hypot(dx, dy);
+    if (d > range) return false;
+    let a = Math.atan2(dy, dx) - dir; while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2;
+    if (Math.abs(a) > fov / 2) return false;
+    for (let s = 8; s < d; s += 8) if (wall(ox + dx * s / d, oy + dy * s / d)) return false;
+    return true;
+  }
+  function moveMe(dx, dy) {
+    const R = 10;
+    const nx = me.x + dx; if (!wall(nx - R, me.y - R) && !wall(nx + R, me.y - R) && !wall(nx - R, me.y + R) && !wall(nx + R, me.y + R)) me.x = nx;
+    const ny = me.y + dy; if (!wall(me.x - R, ny - R) && !wall(me.x + R, ny - R) && !wall(me.x - R, ny + R) && !wall(me.x + R, ny + R)) me.y = ny;
+  }
+
+  function update() {
+    t++;
+    const p = G.players[0];
+    if (state === 'title') { if (p.leftP) li = (li + LEVELS.length - 1) % LEVELS.length; if (p.rightP) li = (li + 1) % LEVELS.length; if (G.any('aP') || G.any('startP')) load(li); return; }
+    if (state === 'caught') { if (t > 60 && (G.any('aP') || G.any('startP'))) load(li); return; }
+    if (state === 'escaped') { if (t > 60 && (G.any('aP') || G.any('startP'))) { const n = (li + 1) % LEVELS.length; localStorage.setItem('nightshift.level', String(n)); load(n); } return; }
+    if (p.startP) { load(li); return; }
+    timer++;
+    const sneak = p.b || p.lt;
+    const sp = sneak ? 1.15 : 2.3;
+    let mx = p.x || 0, my = p.y || 0; const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
+    if (m > 0.1) { moveMe(mx * sp, my * sp); me.face = Math.atan2(my, mx); me.step += sp * 0.12; }
+    const moving = m > 0.1;
+    for (const l of loot) if (!l.got && Math.hypot(l.x - me.x, l.y - me.y) < 22) { l.got = true; sfx.coin(); burst(l.x, l.y, '#ffd23f', 14, 3); }
+    const allGot = loot.every(l => l.got);
+    if (allGot && van && Math.hypot(van.x - me.x, van.y - me.y) < 26) { state = 'escaped'; t = 0; sfx.win(); return; }
+
+    let seen = false;
+    for (const gd of guards) {
+      const [tx, ty] = gd.path[gd.k];
+      const dx = tx - gd.x, dy = ty - gd.y, d = Math.hypot(dx, dy);
+      if (gd.sus > 0.35) { gd.dir = Math.atan2(me.y - gd.y, me.x - gd.x); }
+      else if (gd.wait > 0) { gd.wait--; gd.look = Math.sin(t / 20) * 0.6; }
+      else if (d < 2) { gd.k = (gd.k + 1) % gd.path.length; gd.wait = 40; }
+      else { gd.x += dx / d * gd.speed; gd.y += dy / d * gd.speed; gd.dir = Math.atan2(dy, dx); gd.look = 0; }
+      const vis = sees(gd.x, gd.y, gd.dir + gd.look, 1.25, 170, me.x, me.y);
+      const heard = moving && !sneak && Math.hypot(me.x - gd.x, me.y - gd.y) < 70;
+      if (vis || heard) { gd.sus += vis ? 0.035 + (170 - Math.hypot(me.x - gd.x, me.y - gd.y)) / 170 * 0.04 : 0.02; seen = true; if (heard && !vis) gd.dir = Math.atan2(me.y - gd.y, me.x - gd.x); }
+      else gd.sus = Math.max(0, gd.sus - 0.01);
+      if (gd.sus >= 1) { caught(gd); return; }
+    }
+    for (const c of cams) {
+      c.dir = c.base + Math.sin(t / 70) * c.sweep;
+      if (sees(c.x, c.y, c.dir, 0.8, 200, me.x, me.y)) { c.sus += 0.03; seen = true; if (c.sus >= 1) { caught(c); return; } }
+      else c.sus = Math.max(0, c.sus - 0.015);
+    }
+    alert = Math.max(...guards.map(g => g.sus), ...cams.map(c => c.sus), 0);
+    if (seen && t % 14 === 0) G.beep(600 + alert * 600, 0.05, 'square', 0.03);
+  }
+  function caught(by) { state = 'caught'; t = 0; caughtBy = by; sfx.lose(); shake(10); }
+
+  function cone(g, x, y, dir, fov, range, col) {
+    g.fillStyle = col; g.beginPath(); g.moveTo(x, y);
+    const n = 24;
+    for (let i = 0; i <= n; i++) {
+      const a = dir - fov / 2 + fov * i / n;
+      let d = 0; while (d < range && !wall(x + Math.cos(a) * d, y + Math.sin(a) * d)) d += 6;
+      g.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+    }
+    g.closePath(); g.fill();
+  }
+  function draw(g) {
+    g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, W, H);
+    if (!L) load(li), state = 'title';
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const x = c * T, y = r * T;
+      if (L[r][c] === '#') { g.fillStyle = '#2a3148'; g.fillRect(x, y, T, T); g.fillStyle = '#353e5c'; g.fillRect(x, y, T, 5); }
+      else { g.fillStyle = (r + c) % 2 ? '#141a2c' : '#121828'; g.fillRect(x, y, T, T); }
+    }
+    if (van) { const ready = loot.every(l => l.got); g.fillStyle = ready ? '#3ddc84' : '#3a4560'; G.rrect(van.x - 24, van.y - 14, 48, 28, 6); g.fill(); g.fillStyle = '#0b0f1c'; g.fillRect(van.x + 8, van.y - 10, 10, 10); text('VAN', van.x - 6, van.y + 1, 10, ready ? '#08210f' : '#8892a8'); if (ready && (t / 15 | 0) % 2) { g.strokeStyle = '#3ddc84'; g.lineWidth = 2; g.beginPath(); g.arc(van.x, van.y, 34, 0, 6.3); g.stroke(); } }
+    for (const l of loot) if (!l.got) { g.fillStyle = '#ffd23f'; G.rrect(l.x - 9, l.y - 7 + Math.sin(t / 10 + l.x) * 2, 18, 14, 3); g.fill(); text('$', l.x, l.y + Math.sin(t / 10 + l.x) * 2, 11, '#6b4e00'); }
+    for (const c of cams) { cone(g, c.x, c.y, c.dir, 0.8, 200, c.sus > 0.05 ? `rgba(255,77,94,${0.12 + c.sus * 0.25})` : 'rgba(120,200,255,.10)'); g.fillStyle = '#9aa6c4'; g.beginPath(); g.arc(c.x, c.y, 7, 0, 6.3); g.fill(); g.fillStyle = c.sus > 0.05 ? '#ff4d5e' : '#3d8bff'; g.beginPath(); g.arc(c.x + Math.cos(c.dir) * 5, c.y + Math.sin(c.dir) * 5, 3, 0, 6.3); g.fill(); }
+    for (const gd of guards) {
+      cone(g, gd.x, gd.y, gd.dir + gd.look, 1.25, 170, gd.sus > 0.05 ? `rgba(255,77,94,${0.14 + gd.sus * 0.3})` : 'rgba(255,230,140,.11)');
+      g.fillStyle = '#4b5a8a'; g.beginPath(); g.arc(gd.x, gd.y, 12, 0, 6.3); g.fill();
+      g.fillStyle = '#1d2440'; g.beginPath(); g.arc(gd.x, gd.y, 7, 0, 6.3); g.fill();
+      g.fillStyle = '#ffe28a'; g.beginPath(); g.arc(gd.x + Math.cos(gd.dir + gd.look) * 12, gd.y + Math.sin(gd.dir + gd.look) * 12, 3, 0, 6.3); g.fill();
+      if (gd.sus > 0.05) { text(gd.sus > 0.6 ? '!' : '?', gd.x, gd.y - 24, 20, '#ff4d5e'); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(gd.x - 14, gd.y - 38, 28, 4); g.fillStyle = '#ff4d5e'; g.fillRect(gd.x - 14, gd.y - 38, 28 * gd.sus, 4); }
+    }
+    if (me) {
+      const b = Math.sin(me.step) * 2;
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(me.x, me.y + 10, 11, 4, 0, 0, 6.3); g.fill();
+      g.fillStyle = '#7a6cff'; g.beginPath(); g.arc(me.x, me.y + b * 0.3, 11, 0, 6.3); g.fill();
+      g.fillStyle = '#16122e'; g.fillRect(me.x - 9, me.y - 4, 18, 5);
+      g.fillStyle = '#fff'; g.fillRect(me.x - 6 + Math.cos(me.face) * 2, me.y - 3, 3, 2); g.fillRect(me.x + 3 + Math.cos(me.face) * 2, me.y - 3, 3, 2);
+    }
+    // vignette
+    const v = g.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 620); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
+    if (state !== 'title') {
+      g.fillStyle = 'rgba(0,0,0,.5)'; G.rrect(10, 6, 380, 22, 8); g.fill();
+      text(`${LEVELS[li].name}  ·  loot ${loot.filter(l => l.got).length}/${loot.length}  ·  ${(timer / 60 | 0)}s  ·  hold B to sneak`, 18, 17, 13, '#fff', 'left', 700);
+      if (alert > 0.05) { g.fillStyle = `rgba(255,40,60,${alert * 0.25})`; g.fillRect(0, 0, W, H); }
+    }
+    if (state === 'title') G.panel('NIGHT SHIFT', ['Grab every bag of loot, then get to the van.', 'Stay out of the light. Hold B to sneak — guards can hear running.', `Heist ${li + 1}: ${LEVELS[li].name}   ◀ ▶ to choose · A to start`], '#7a6cff');
+    if (state === 'caught') G.panel('CAUGHT!', [caughtBy && caughtBy.path ? 'A guard spotted you.' : 'A camera saw you.', 'Wait for patrols to turn. Use the shadows.', 'Press A to try again'], '#ff4d5e');
+    if (state === 'escaped') G.panel('CLEAN GETAWAY', [`Time ${(timer / 60).toFixed(1)}s`, 'Press A for the next heist'], '#3ddc84');
+  }
+  G.run(update, draw);
+})();
+</script>
+</body></html>

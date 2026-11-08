@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.ps10000.tv'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.ps10000.tv'
+        minSdk 21          // Android TV 5.0 boxes and newer (the Mi TV runs Android TV 9 = API 28)
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildFeatures { buildConfig true }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // signed with the debug key so it installs on friends' TVs without extra setup;
+            // swap in your own keystore before sharing widely
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    // game data (.data cores, roms, music) must stay uncompressed-friendly but any type works
+    androidResources {
+        noCompress += ['data', 'wasm', 'mp3', 'ogg', 'jpg', 'png', 'woff2']
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

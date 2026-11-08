@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>PS10,000</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="stage">
+  <!-- background art (two layers for crossfade) -->
+  <div id="bg"><div class="bg-layer" id="bgA"></div><div class="bg-layer" id="bgB"></div><div class="bg-shade"></div></div>
+
+  <!-- boot -->
+  <section id="boot" class="screen">
+    <div class="boot-ring"><i></i><i></i><i></i></div>
+    <div class="boot-word">PS<span>10,000</span></div>
+    <div class="boot-tag">Your games. Your friends. One screen.</div>
+    <div class="boot-press">Press <b class="glyph">A</b> or <b class="glyph">OK</b> to start</div>
+  </section>
+
+  <!-- profile select -->
+  <section id="profiles" class="screen">
+    <div class="bokeh" id="bokeh"></div>
+    <div class="top-clock" id="clock2"></div>
+    <h1 class="who-title">Welcome back to PS10,000</h1>
+    <div class="who">Who's using this controller?</div>
+    <div class="profile-row" id="profileRow"></div>
+    <div class="power-btn" id="powerBtn"></div>
+    <div class="hint-bar"><span><b class="glyph">A</b> Select</span><span><b class="glyph">Y</b> Rename</span></div>
+  </section>
+
+  <!-- home -->
+  <section id="home" class="screen">
+    <header class="topbar">
+      <nav class="tabs" id="tabs"></nav>
+      <div class="top-right">
+        <div class="pads" id="padDots"></div>
+        <div class="top-icon" id="topGear"></div>
+        <div class="me" id="me"></div>
+        <div class="clock" id="clock"></div>
+      </div>
+    </header>
+    <div class="row-wrap"><div class="tile-row" id="tileRow"></div></div>
+    <div class="game-info" id="gameInfo">
+      <div class="gi-system" id="giSystem"></div>
+      <h2 class="gi-title" id="giTitle"></h2>
+      <div class="gi-meta" id="giMeta"></div>
+      <p class="gi-blurb" id="giBlurb"></p>
+      <div class="gi-actions" id="giActions"></div>
+    </div>
+    <div class="shelf-title" id="shelfTitle">Quick access</div>
+    <div class="shelf" id="shelf"></div>
+  </section>
+
+  <!-- game hub -->
+  <section id="hub" class="screen">
+    <div class="hub-mini" id="hubMini"></div>
+    <div class="hub-time" id="hubTime"></div>
+    <div class="hub-head">
+      <div class="gi-system" id="hubSystem"></div>
+      <h1 class="hub-title" id="hubTitle"></h1>
+      <div class="gi-meta" id="hubMeta"></div>
+      <div class="gi-actions" id="hubActions"></div>
+    </div>
+    <div class="hub-cards" id="hubCards"></div>
+    <div class="hint-bar"><span><b class="glyph">A</b> Select</span><span><b class="glyph">B</b> Back</span></div>
+  </section>
+
+  <!-- library -->
+  <section id="library" class="screen">
+    <header class="page-head"><h1>Game Library</h1><div class="lib-count" id="libCount"></div></header>
+    <div class="chips" id="libChips"></div>
+    <div class="lib-grid-wrap"><div class="lib-grid" id="libGrid"></div></div>
+    <div class="hint-bar"><span><b class="glyph">A</b> Open</span><span><b class="glyph">LB</b><b class="glyph">RB</b> Filter</span><span><b class="glyph">B</b> Back</span></div>
+  </section>
+
+  <!-- controllers -->
+  <section id="controllers" class="screen">
+    <header class="page-head"><h1>Controllers</h1></header>
+    <div class="ctl-main">
+      <div class="ctl-qr-card">
+        <div class="qr" id="qrBig"></div>
+        <div class="ctl-steps">
+          <h3>Use your phone as a controller</h3>
+          <ol>
+            <li>Join the same Wi-Fi as this TV</li>
+            <li>Scan the code with the phone camera</li>
+            <li>Turn the phone sideways and play</li>
+          </ol>
+          <div class="ctl-url" id="ctlUrl"></div>
+          <div class="ctl-pin">PIN <b id="ctlPin"></b></div>
+        </div>
+      </div>
+      <div class="slot-grid" id="slotGrid"></div>
+    </div>
+    <p class="ctl-foot">Bluetooth controllers: pair them once in the TV's <b>Settings → Remotes &amp; Accessories</b>, then press any button.</p>
+    <div class="hint-bar"><span><b class="glyph">X</b> Free selected slot</span><span><b class="glyph">B</b> Back</span></div>
+  </section>
+
+  <!-- add games -->
+  <section id="addgames" class="screen">
+    <header class="page-head"><h1>Add Retro Games</h1></header>
+    <div class="add-main">
+      <div class="add-steps">
+        <div class="add-step"><span>1</span><div><h3>Open the controller page on your phone</h3><p>Scan the code on the right, then tap <b>Add games</b>.</p></div></div>
+        <div class="add-step"><span>2</span><div><h3>Pick ROM files</h3><p>.nes .sfc .smc .gb .gbc .gba .md .gen .sms .gg .zip — up to 96 MB each.</p></div></div>
+        <div class="add-step"><span>3</span><div><h3>They show up here instantly</h3><p>Known homebrew gets its own cover and info. Anything else lands in <b>Your ROMs</b>.</p></div></div>
+        <p class="add-note" id="romFolder"></p>
+        <p class="add-note">Only add games you are allowed to share — homebrew with open licences, or your own dumps.</p>
+      </div>
+      <div class="add-side">
+        <div class="qr" id="qrAdd"></div>
+        <h3 class="add-list-h">On this TV</h3>
+        <div class="rom-list" id="romList"></div>
+      </div>
+    </div>
+    <div class="hint-bar"><span><b class="glyph">X</b> Delete selected</span><span><b class="glyph">B</b> Back</span></div>
+  </section>
+
+  <!-- settings -->
+  <section id="settings" class="screen">
+    <header class="page-head"><h1>Settings</h1></header>
+    <div class="set-wrap"><div class="set-list" id="setList"></div><div class="set-detail" id="setDetail"></div></div>
+    <div class="hint-bar"><span><b class="glyph">A</b> Change</span><span><b class="glyph">B</b> Back</span></div>
+  </section>
+
+  <!-- game host -->
+  <section id="player" class="screen">
+    <iframe id="gameFrame" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe>
+    <div class="loading" id="loading"><div class="spinner"></div><div id="loadingText">Loading</div></div>
+  </section>
+
+  <!-- control center / pause -->
+  <div id="cc" class="overlay">
+    <div class="cc-game" id="ccGame"></div>
+    <div class="cc-bar" id="ccBar"></div>
+  </div>
+
+  <!-- keyboard -->
+  <div id="osk" class="overlay"><div class="osk-box"><div class="osk-title" id="oskTitle"></div><div class="osk-field" id="oskField"></div><div class="osk-keys" id="oskKeys"></div></div></div>
+
+  <div id="toasts"></div>
+  <div id="fps"></div>
+</div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="js/catalog.js"></script>
+<script src="js/core.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/host.js"></script>
+</body>
+</html>
