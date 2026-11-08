@@ -1,6 +1,6 @@
 # PS10,000 — private TV game console
 
-One Android TV app: PS5-style home screen, 15 built-in games, a retro emulator for homebrew ROMs,
+One Android TV app: PS5-style home screen, 88 built-in games, a retro emulator for homebrew ROMs,
 and any phone becomes a controller (up to 4 players). Works fully offline on your home Wi-Fi.
 
 Works on Android TV, Google TV and Android TV boxes (Android 5.0+). Tested target: Xiaomi Mi TV (MITV-AXSO0, Android TV 9).
@@ -45,7 +45,7 @@ When asked, allow **Install unknown apps** for the app you used. PS10,000 then a
 The phone layout changes per game: D-pad + A/B for retro games, stick + ABXY for modern games,
 two sticks for twin-stick shooters, one giant button for Jet Rush.
 
-## 4. Built-in games (15)
+## 4. Built-in games (88)
 
 | Game | Players | Type | Licence |
 |---|---|---|---|
@@ -66,6 +66,27 @@ two sticks for twin-stick shooters, one giant button for Jet Rush.
 | 2048 | 1 | Gabriele Cirulli | MIT |
 
 Ads, analytics and "buy the full version" links were removed from the open-source games (allowed by their licences).
+
+**Added in v1.1 (73 more):**
+
+| Pack | Games | Licence |
+|---|---|---|
+| LittleJS Arcade (Frank Force) | 59 games: Astroblast, Blastman, Bobble Pop, Boomer, Brickout, Capture Go, Centibug, Checkers, Chess, Complements, Drop Four, Dominoes, Dr. Pill, Emoji Survivors, Floppy Bird, Free Throw, FreeCell, Froggit, Gem Fighter, Geometry Jump, Go, Home Run Derby, Jetdash, Jouster, Klondike, Match Three, Micro Racer, Minesweeper, Mini Golf, Missile Defense, Moon Lander, Moonbuggy, Drillman, OrbitSwarm, Pegball, Pillars, Pinball, Plinker, Pong, Pool, Powerwing, Protector, Maze Munch, Reversi, River Strike, Robo Rescue, Skiing, Skyhop, Snake, Sokoban, Space Intruders, Speedway, Spy Driver, Sudoku, Tank Combat, Tetrix, Wordly, Wulfstein, Zoomi | MIT (+ Twemoji CC BY 4.0) |
+| Breakout, Tiny Platformer | Jake Gordon | MIT |
+| Dino Run | Chromium authors / wayou | BSD-3 |
+| Astray | Rye Terrell | Public domain |
+| Asteroids HTML5 | Doug McInnes | MIT |
+| Alien Invasion | Cykod | MIT / GPL |
+| Save the Forest | Varun Malhotra | MIT |
+| Space Crusade | Loopeex | MIT |
+| Tower Blocks | iamkun | MIT |
+| Captain Rogers | Enclave Games | CC BY-NC 4.0 |
+| HexGL | Thibaut Despoulain | MIT |
+| Little Platformer, Gem Match | Frank Force (LittleJS examples) | MIT |
+| Bounce Back | Frank Force | GPL-3.0 |
+
+Analytics, remote fonts and tracking scripts were stripped so every game runs offline.
+
 
 ## 5. Add retro games (NES, SNES, GB/GBC, GBA, Mega Drive, Master System, Game Gear)
 

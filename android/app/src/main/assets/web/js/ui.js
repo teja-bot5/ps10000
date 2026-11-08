@@ -213,6 +213,8 @@
       if (tab === 'games') list = all.filter(g => g.available).sort(recent);
       else if (tab === 'multi') list = all.filter(g => g.available && maxPlayers(g) >= 2).sort(recent);
       else list = all.filter(g => g.type === 'rom').sort((a, b) => (b.available - a.available) || recent(a, b));
+      // like a console home: the most recent dozen up front, everything else lives in the Library
+      if (tab !== 'retro') list = list.slice(0, 12);
       const items = list.map(g => ({ kind: 'game', g }));
       if (tab === 'retro') items.push({ kind: 'add' });
       items.push({ kind: 'library' });
@@ -480,6 +482,9 @@
     { id: 'shooter', name: 'Shooters', f: g => (g.tags || []).includes('shooter') },
     { id: 'platformer', name: 'Platformers', f: g => (g.tags || []).includes('platformer') },
     { id: 'puzzle', name: 'Puzzle', f: g => (g.tags || []).includes('puzzle') },
+    { id: 'arcade', name: 'Arcade', f: g => (g.tags || []).includes('arcade') },
+    { id: 'board', name: 'Board & cards', f: g => (g.tags || []).includes('board') },
+    { id: 'racing', name: 'Racing & sports', f: g => (g.tags || []).some(t => t === 'racing' || t === 'sports') },
     { id: 'original', name: 'Originals', f: g => g.type === 'original' }
   ];
   screens.library = {
@@ -610,7 +615,7 @@
         { id: 'volume', name: 'Volume', val: Math.round(s.volume * 100) + '%', desc: '<h3>Volume</h3><p>Volume of menu sounds and music. Game volume follows the TV.</p>' },
         { id: 'lite', name: 'Visual effects', val: LITE_LABEL[s.lite], desc: `<h3>Visual effects</h3><p><b>Auto</b> switches to Lite on TVs with less than 1.6 GB RAM. This TV reports ${PS.device.memMB ? Math.round(PS.device.memMB) + ' MB' : 'unknown memory'} — currently <b>${PS.isLite() ? 'Lite' : 'Full'}</b>.</p><p>Lite turns off moving backgrounds and shadows so menus stay smooth.</p>` },
         { id: 'fps', name: 'Show FPS counter', val: s.fps ? 'On' : 'Off', desc: '<h3>FPS counter</h3><p>Shows frames per second in the corner. Useful to check smoothness on this TV.</p>' },
-        { id: 'about', name: 'About this console', val: '', desc: `<h3>PS10,000</h3><p>Version 1.0 · ${allGames().filter(g => g.available).length} games ready</p><p>TV address: ${esc(PS.net.info.ip || '—')}:${esc(PS.net.info.port || '')}</p><p>Memory: ${PS.device.memMB ? Math.round(PS.device.memMB) + ' MB' : 'unknown'} · ${PS.device.android ? 'Android TV app' : 'Browser'}</p><p>A private console for friends. Not affiliated with any console maker.</p>` },
+        { id: 'about', name: 'About this console', val: '', desc: `<h3>PS10,000</h3><p>Version 1.1 · ${allGames().filter(g => g.available).length} games ready</p><p>TV address: ${esc(PS.net.info.ip || '—')}:${esc(PS.net.info.port || '')}</p><p>Memory: ${PS.device.memMB ? Math.round(PS.device.memMB) + ' MB' : 'unknown'} · ${PS.device.android ? 'Android TV app' : 'Browser'}</p><p>A private console for friends. Not affiliated with any console maker.</p>` },
         { id: 'licenses', name: 'Licences & credits', val: '', desc: licenseHtml(), scroll: true },
         { id: 'reset', name: 'Reset stats for this player', val: '', desc: '<h3>Reset stats</h3><p>Clears play counts and play time for the current player. Saves are kept.</p><p>Press A twice to confirm.</p>' }
       ];
@@ -651,6 +656,8 @@
       `<li><b>Source Sans 3</b> typeface — Adobe · SIL Open Font License 1.1</li>` +
       `<li><b>qrcode-generator</b> — Kazuhiko Arase · MIT</li>` +
       `<li><b>Launcher layout</b> — based on WPS5 by angelvc25, used with permission</li>` +
+      `<li><b>LittleJS engine & LittleJS Arcade</b> — MIT · Frank Force · github.com/KilledByAPixel</li>` +
+      `<li><b>Twemoji</b> graphics used by the Arcade games — CC BY 4.0 · Twitter, Inc. and contributors</li>` +
       `<li><b>PS10,000</b> launcher, originals, sounds and icons — made for this console</li></ul>`;
   }
 

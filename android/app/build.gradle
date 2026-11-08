@@ -10,8 +10,8 @@ android {
         applicationId 'com.ps10000.tv'
         minSdk 21          // Android TV 5.0 boxes and newer (the Mi TV runs Android TV 9 = API 28)
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
     }
 
     buildFeatures { buildConfig true }
