@@ -17,9 +17,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships the Android SDK (ANDROID_HOME); setup-android's legacy 'tools' install fails
       - name: Build release APK
         run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
